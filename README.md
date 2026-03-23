@@ -1,7 +1,7 @@
 # Caracterização Epidemiológica dos Óbitos em Sinistros de Trânsito
 ## Regiões Metropolitanas do Estado de São Paulo — 2016–2025
 
-Repositório de dados e código para análise epidemiológica dos óbitos em sinistros de trânsito nas regiões metropolitanas do Estado de São Paulo, com base nos dados do INFOSIGA-SP.
+Repositório de dados e código para análise epidemiológica dos óbitos em sinistros de trânsito nas regiões metropolitanas do Estado de São Paulo, com base nos dados do INFOSIGA-SP e do Índice Paulista de Vulnerabilidade Social (IPVS 2022).
 
 ---
 
@@ -16,27 +16,28 @@ Divisão de Cirurgia de Trauma — Faculdade de Ciências Médicas, UNICAMP
 
 ---
 
-### Fonte dos dados
+### Fontes dos dados
 
-Os dados utilizados são de acesso público e disponibilizados pelo **Sistema de Informações Gerenciais de Acidentes de Trânsito do Estado de São Paulo (INFOSIGA-SP)**.
+| Dado | Fonte | URL |
+|---|---|---|
+| Sinistros de trânsito | INFOSIGA-SP | https://www.infosiga.sp.gov.br |
+| IPVS — Shapefile setores censitários | SEADE/IBGE | https://repositorio.seade.gov.br |
+| IPVS — Tabelas municipais | SEADE/IBGE | https://repositorio.seade.gov.br |
+| Municípios do Estado de SP | SEADE | https://repositorio.seade.gov.br |
 
-- URL: https://www.infosiga.sp.gov.br
-- Tabelas utilizadas: `sinistros` e `pessoas`
-- Período bruto disponível: 2015–2026
-- Arquivos baixados: `sinistros_2015-2021.csv`, `sinistros_2022-2026.csv`, `pessoas_2015-2021.csv`, `pessoas_2022-2026.csv`
-
-Os arquivos brutos originais não estão incluídos neste repositório por excederem o limite de tamanho do GitHub (>100 MB). Devem ser baixados diretamente pelo INFOSIGA-SP e colocados na raiz do repositório antes de rodar o script pela primeira vez.
+Os arquivos brutos do INFOSIGA-SP (>100 MB) não estão incluídos neste repositório. Devem ser baixados diretamente e colocados na raiz antes da primeira execução. O shapefile do IPVS também deve ser baixado e extraído em `ipvs_2022/`.
 
 ---
 
 ### Estrutura do repositório
 
 ```
-📁 infosiga-rms-sp/
+infosiga-sp-obitos-rms/
 ├── dados/
-│   ├── obitos_sinistros_2016-2025.csv   ← gerado automaticamente na 1ª execução
-│   └── obitos_pessoas_2016-2025.csv     ← gerado automaticamente na 1ª execução
-├── analise.py                           ← script completo de análise
+│   ├── obitos_sinistros_2016-2025.csv
+│   └── obitos_pessoas_2016-2025.csv
+├── analise.py
+├── analise_ipvs.py
 └── README.md
 ```
 
@@ -47,29 +48,28 @@ Os arquivos brutos originais não estão incluídos neste repositório por exced
 **Pré-requisitos**
 
 ```bash
-pip3 install pandas
+pip3 install pandas geopandas shapely pyproj scipy openpyxl
 ```
 
 **Passos**
 
 1. Clone o repositório:
 ```bash
-git clone https://github.com/<usuario>/infosiga-rms-sp.git
-cd infosiga-rms-sp
+git clone https://github.com/fabriciolm225/infosiga-sp-obitos-rms.git
+cd infosiga-sp-obitos-rms
 ```
 
-2. Baixe os 4 arquivos CSV do INFOSIGA-SP e coloque na raiz do repositório:
-   - `sinistros_2015-2021.csv`
-   - `sinistros_2022-2026.csv`
-   - `pessoas_2015-2021.csv`
-   - `pessoas_2022-2026.csv`
+2. Baixe os arquivos do INFOSIGA-SP e coloque na raiz: `sinistros_2015-2021.csv`, `sinistros_2022-2026.csv`, `pessoas_2015-2021.csv`, `pessoas_2022-2026.csv`
 
-3. Execute o script:
+3. Baixe o shapefile IPVS 2022 do SEADE, extraia e coloque em `ipvs_2022/`: `IPVS_2022.shp`, `IPVS_2022.dbf`, `IPVS_2022.shx`, `IPVS_2022.prj`
+
+4. Baixe o `ipvs.xlsx` do SEADE e coloque na raiz.
+
+5. Execute em ordem:
 ```bash
 python3 analise.py
+python3 analise_ipvs.py
 ```
-
-Na primeira execução, os CSVs filtrados são gerados automaticamente em `dados/`. Nas execuções seguintes, os dados brutos originais não são mais necessários.
 
 ---
 
@@ -78,34 +78,45 @@ Na primeira execução, os CSVs filtrados são gerados automaticamente em `dados
 | Parâmetro | Valor |
 |---|---|
 | Período | 2016–2025 |
-| Desfecho | Óbitos (sinistros fatais) |
-| Unidade geográfica | Região Metropolitana |
-| Regiões incluídas | RMSP, Campinas, Baixada Santista, Sorocaba, São José dos Campos |
+| Desfecho | Óbitos em sinistros de trânsito |
+| Regiões | RMSP, Campinas, Baixada Santista, Sorocaba, São José dos Campos |
+| Sinistros fatais | 36.425 |
+| Vítimas fatais | 38.367 |
+| Sinistros georreferenciados | 32.168 (88,3%) |
 
 ---
 
 ### Decisões metodológicas
 
-- **Período:** 2016–2025. O sistema INFOSIGA registrava apenas óbitos em 2015–2018; a série completa (incluindo não fatais) começa em 2019. Como este estudo foca exclusivamente em óbitos, todos os anos a partir de 2016 são válidos para comparação.
-- **Duplicatas:** 1.436 linhas com registros 100% idênticos foram removidas da tabela `pessoas` (provável erro de processamento do sistema). As 5 duplicatas de `id_veiculo` na tabela `veículos` foram mantidas por apresentarem campos conflitantes.
-- **Tabela veículos:** não utilizada. As variáveis de interesse (tipo de veículo da vítima) já estão disponíveis em `pessoas` via `tipo_veiculo_vitima`.
-- **Profissão:** normalizada por conversão para maiúsculas e remoção de espaços para corrigir inconsistências de capitalização entre os dois arquivos de período.
-- **Grau de instrução e nacionalidade:** ambos os campos são 100% nulos para vítimas fatais no INFOSIGA — excluídos das análises com nota metodológica.
-- **Populações:** Censo IBGE 2022.
-- **2026:** excluído por ser ano incompleto no momento do download dos dados.
+- **Período:** 2016–2025. O INFOSIGA registrava apenas óbitos em 2015–2018; a série completa começa em 2019. Como o foco é exclusivamente em óbitos, todos os anos a partir de 2016 são válidos.
+- **Duplicatas:** 1.436 linhas 100% idênticas removidas da tabela `pessoas`.
+- **Tabela veículos:** não utilizada — variáveis de interesse já presentes em `pessoas`.
+- **Profissão:** normalizada por `.str.upper().str.strip()`.
+- **Grau de instrução e nacionalidade:** 100% nulos para fatais no INFOSIGA — excluídos.
+- **Populações municipais:** moradores em DPPO, Censo IBGE 2022 (IPVS/SEADE).
+- **Corte mínimo municipal:** municípios com menos de 10 óbitos excluídos da análise ecológica.
+- **IPVS — spatial join:** cada sinistro georreferenciado recebeu o grupo IPVS do setor censitário onde ocorreu. O IPVS caracteriza o local do sinistro, não a vítima.
+- **IPVS — temporalidade:** índice de 2022 aplicado a sinistros de 2016–2025 — limitação reconhecida.
+- **2026:** excluído por ser ano incompleto.
 
 ---
 
-### Blocos de análise
+### Análises disponíveis
 
-**Bloco A — Sinistros fatais**
-Tendência anual, tipo de sinistro, tipo de via, turno, dia da semana, mês, circunscrição, administração, tipo de local, municípios com maior frequência e subtipos de sinistro.
+**`analise.py` — Epidemiologia dos óbitos**
 
-**Bloco B — Vítimas fatais**
-Tendência anual, taxa de mortalidade por 100 mil habitantes, tipo de veículo, tipo de vítima, sexo, faixa etária, local do óbito, tempo sinistro-óbito, local da via e profissão.
+Bloco A — Sinistros fatais: tendência anual, tipo de sinistro, tipo de via, turno, dia da semana, mês, circunscrição, administração, tipo de local, top municípios e subtipos binários.
+
+Bloco B — Vítimas fatais: tendência anual, taxa de mortalidade por 100k hab, tipo de veículo, tipo de vítima, sexo, faixa etária, local do óbito, tempo sinistro-óbito, local da via e profissão.
+
+**`analise_ipvs.py` — Vulnerabilidade social**
+
+Análise intraurbana (setor censitário): distribuição de óbitos por grupo IPVS (1–6), por RM e por ano; correlação de Spearman; perfil das vítimas por grupo IPVS.
+
+Análise ecológica municipal (complementar): taxa de mortalidade por município cruzada com % de alta+muito alta vulnerabilidade; correlação de Spearman por RM e geral.
 
 ---
 
 ### Licença
 
-Código disponibilizado sob licença MIT. Os dados são de domínio público (INFOSIGA-SP / Governo do Estado de São Paulo).
+MIT. Dados de domínio público: INFOSIGA-SP (Governo do Estado de SP) e IPVS (SEADE/IBGE).
